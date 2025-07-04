@@ -1,0 +1,12 @@
+// Pre-define some musical events if localStorage is empty, otherwise load existing events
+    let events = JSON.parse(localStorage.getItem('events'));
+    if (!events || events.length === 0) { // Check if events are not in localStorage or if the array is empty
+        events = [
+            { name: "Summer Pop Fest" },
+            { name: "Classical Harmony Night" },
+            { name: "Jazz Fusion Jam" },
+            { name: "Indie Rock Showcase" },
+            { name: "Electronic Dance Carnival" }
+        ];
+        localStorage.setItem('events', JSON.stringify(events)); // Save these initial events to localStorage
+    }
