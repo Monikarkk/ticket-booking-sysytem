@@ -65,6 +65,21 @@
             color: red;
             margin-top: 10px;
         }
+        /* Style for the event list on the login page */
+        #availableEventsTable {
+            margin-top: 25px;
+            background-color: #fff;
+            border: 1px solid #eee;
+        }
+        #availableEventsTable th,
+        #availableEventsTable td {
+            border: 1px solid #ddd;
+        }
+        #availableEventsTable h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #555;
+        }
     </style>
 </head>
 <body>
@@ -107,6 +122,20 @@
         <button type="submit">Register</button>
         <p id="registerMessage" class="message"></p>
     </form>
+
+    <div id="availableEventsTable">
+        <h3>Upcoming Musical Concerts</h3>
+        <table id="authEventList">
+            <thead>
+                <tr>
+                    <th>Event Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>No events available.</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 ---
@@ -116,15 +145,15 @@
     <form id="bookingForm">
         <label>Name:</label>
         <input type="text" id="userName" required>
-        
+
         <label>Email:</label>
         <input type="email" id="userEmail" required>
-        
+
         <label>Event:</label>
         <select id="eventSelect" required>
             <option value="">Select an event</option>
         </select>
-        
+
         <label>Tickets:</label>
         <input type="number" id="ticketCount" min="1" value="1" required>
 
@@ -145,7 +174,7 @@
     </form>
 
     <h3>All Events</h3>
-    <table id="eventListTable">
+    <table id="adminEventListTable">
         <thead>
             <tr>
                 <th>Event Name</th>
@@ -190,13 +219,28 @@
 
     const addEventForm = document.getElementById('addEventForm');
     const eventNameInput = document.getElementById('eventName');
-    const eventList = document.getElementById('eventList');
+    const eventList = document.getElementById('eventList'); // Admin event list tbody
+    const authEventList = document.getElementById('authEventList').querySelector('tbody'); // Public event list tbody
 
     // Data Storage (using localStorage for demonstration)
-    // Initialize from localStorage or use empty arrays if not present
     let users = JSON.parse(localStorage.getItem('users')) || [];
     let bookings = JSON.parse(localStorage.getItem('bookings')) || [];
-    let events = JSON.parse(localStorage.getItem('events')) || [];
+
+    // Pre-define some musical events if localStorage is empty, otherwise load existing events
+    let events = JSON.parse(localStorage.getItem('events'));
+    if (!events || events.length === 0) { // Check if events are not in localStorage or if the array is empty
+        events = [
+            { name: "Summer Pop Fest" },
+            { name: "Classical Harmony Night" },
+            { name: "Jazz Fusion Jam" },
+            { name: "Indie Rock Showcase" },
+            { name: "Electronic Dance Carnival" },
+            { name: "Global Rhythms Festival" },
+            { name: "Acoustic Sunset Session" },
+            { name: "Symphony Orchestra Gala" }
+        ];
+        localStorage.setItem('events', JSON.stringify(events)); // Save these initial events to localStorage
+    }
 
     let currentUser = null; // Stores the currently logged-in user
 
@@ -216,6 +260,7 @@
         }
         loginMessage.textContent = ''; // Clear previous messages
         registerMessage.textContent = '';
+        renderAuthEvents(); // Render events when auth form is shown
     }
 
     // Event listener for login form submission
@@ -268,9 +313,9 @@
         renderApp(); // Re-render the application to show authentication view
     }
 
-    // --- Event Management Functions (Admin) ---
+    // --- Event Management Functions (Admin) and Public Display ---
 
-    // Event listener for adding new events
+    // Function to render events in the admin panel
     addEventForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const eventName = eventNameInput.value.trim();
@@ -278,21 +323,19 @@
             events.push({ name: eventName });
             localStorage.setItem('events', JSON.stringify(events)); // Save event
             eventNameInput.value = ''; // Clear input
-            renderEvents(); // Update event list in admin view
-            populateEventSelect(); // Update event dropdown for users
+            renderAdminEvents(); // Update admin view
+            renderAuthEvents(); // Update login page view
+            populateEventSelect(); // Update user booking dropdown
         }
     });
 
-    /**
-     * Renders the list of events in the admin panel.
-     */
-    function renderEvents() {
+    function renderAdminEvents() {
         if (events.length === 0) {
             eventList.innerHTML = '<tr><td colspan="2">No events yet.</td></tr>';
             return;
         }
 
-        eventList.innerHTML = ''; // Clear existing list
+        eventList.innerHTML = '';
         events.forEach((event, index) => {
             const row = `<tr>
                 <td>${event.name}</td>
@@ -302,24 +345,34 @@
         });
     }
 
-    /**
-     * Deletes an event from the list.
-     * @param {number} index - The index of the event to delete.
-     */
+    // New function to render events on the authentication (login/register) page
+    function renderAuthEvents() {
+        if (events.length === 0) {
+            authEventList.innerHTML = '<tr><td>No events available.</td></tr>';
+            return;
+        }
+
+        authEventList.innerHTML = '';
+        events.forEach(event => {
+            const row = `<tr>
+                <td>${event.name}</td>
+            </tr>`;
+            authEventList.innerHTML += row;
+        });
+    }
+
     function deleteEvent(index) {
         if (confirm('Are you sure you want to delete this event?')) {
-            events.splice(index, 1); // Remove event from array
-            localStorage.setItem('events', JSON.stringify(events)); // Save updated events
-            renderEvents(); // Re-render event list
-            populateEventSelect(); // Update event dropdown
+            events.splice(index, 1);
+            localStorage.setItem('events', JSON.stringify(events));
+            renderAdminEvents(); // Update admin view
+            renderAuthEvents(); // Update login page view
+            populateEventSelect(); // Update user booking dropdown
         }
     }
 
-    /**
-     * Populates the event selection dropdown for user bookings.
-     */
     function populateEventSelect() {
-        eventSelect.innerHTML = '<option value="">Select an event</option>'; // Default option
+        eventSelect.innerHTML = '<option value="">Select an event</option>';
         events.forEach(event => {
             const option = document.createElement('option');
             option.value = event.name;
@@ -330,7 +383,6 @@
 
     // --- User Booking Functions ---
 
-    // Event listener for booking form submission
     bookingForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const name = document.getElementById('userName').value;
@@ -343,23 +395,20 @@
             return;
         }
 
-        bookings.push({ name, email, event, tickets }); // Add new booking
-        localStorage.setItem('bookings', JSON.stringify(bookings)); // Save booking
-        bookingForm.reset(); // Clear form
+        bookings.push({ name, email, event, tickets });
+        localStorage.setItem('bookings', JSON.stringify(bookings));
+        bookingForm.reset();
         alert("Booking successful!");
-        renderBookings(); // Update admin view if visible
+        renderBookings();
     });
 
-    /**
-     * Renders the list of all bookings in the admin panel.
-     */
     function renderBookings() {
         if (bookings.length === 0) {
             bookingList.innerHTML = '<tr><td colspan="4">No bookings yet.</td></tr>';
             return;
         }
 
-        bookingList.innerHTML = ''; // Clear existing list
+        bookingList.innerHTML = '';
         bookings.forEach(b => {
             const row = `<tr>
                 <td>${b.name}</td>
@@ -373,64 +422,50 @@
 
     // --- Main Application Rendering Logic ---
 
-    /**
-     * Shows a specific section of the application.
-     * @param {string} view - 'auth', 'user', or 'admin'.
-     */
     function showSection(view) {
-        // Hide all sections first
         authSection.classList.remove('visible');
         userSection.classList.remove('visible');
         adminSection.classList.remove('visible');
 
-        // Show the requested section and perform specific actions
         if (view === 'user') {
             userSection.classList.add('visible');
-            populateEventSelect(); // Ensure event dropdown is updated
+            populateEventSelect();
         } else if (view === 'admin') {
             adminSection.classList.add('visible');
-            renderEvents(); // Render events when admin view is shown
-            renderBookings(); // Render bookings when admin view is shown
+            renderAdminEvents(); // Use specific render for admin
+            renderBookings();
         } else { // 'auth'
             authSection.classList.add('visible');
-            showAuthForm('login'); // Default to login form
+            showAuthForm('login');
+            renderAuthEvents(); // Ensure events are displayed on auth page load
         }
     }
 
-    /**
-     * Renders the main application view based on login status and user role.
-     */
     function renderApp() {
-        // Clear previous toggle buttons
         mainToggleButtons.innerHTML = '';
-
-        // Get current user from localStorage
         currentUser = JSON.parse(localStorage.getItem('currentUser'));
 
         if (currentUser) {
-            // If logged in, add logout button
             const logoutBtn = document.createElement('button');
             logoutBtn.textContent = `Logout (${currentUser.username})`;
             logoutBtn.classList.add('logout');
             logoutBtn.onclick = logout;
             mainToggleButtons.appendChild(logoutBtn);
 
-            // Add role-specific view buttons
             if (currentUser.role === 'user') {
                 const userViewBtn = document.createElement('button');
                 userViewBtn.textContent = 'User View';
                 userViewBtn.onclick = () => showSection('user');
                 mainToggleButtons.appendChild(userViewBtn);
-                showSection('user'); // Show user view by default
+                showSection('user');
             } else if (currentUser.role === 'admin') {
                 const adminViewBtn = document.createElement('button');
                 adminViewBtn.textContent = 'Admin View';
                 adminViewBtn.onclick = () => showSection('admin');
                 mainToggleButtons.appendChild(adminViewBtn);
-                showSection('admin'); // Show admin view by default
+                showSection('admin');
             }
         } else {
-            // If not logged in, show authentication section
             showSection('auth');
         }
     }
